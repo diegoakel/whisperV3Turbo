@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription</title>
+    <script>
+        let mediaRecorder;
+        let audioBlob = null;
+
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+
+                    mediaRecorder.addEventListener("dataavailable", event => {
+                        if (event.data.size > 0) {
+                            audioBlob = event.data;
+                        }
+                    });
+
+                    document.getElementById("startButton").disabled = true;
+                    document.getElementById("stopButton").disabled = false;
+                });
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            mediaRecorder.addEventListener("stop", () => {
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById("audioPlayback").src = audioUrl;
+                
+                document.getElementById("startButton").disabled = false;
+                document.getElementById("stopButton").disabled = true;
+            });
+        }
+
+        function transcribe() {
+            if (!audioBlob) return;
+
+            const formData = new FormData();
+            formData.append("file", audioBlob, "recording.wav");
+
+            fetch("/transcribe", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("transcription").textContent = data.transcription || data.error;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Audio Transcription Service</h1>
+    <button id="startButton" onclick="startRecording()">Start Recording</button>
+    <button id="stopButton" onclick="stopRecording()" disabled>Stop Recording</button>
+    <audio id="audioPlayback" controls></audio>
+    <button onclick="transcribe()">Transcribe</button>
+    <div id="transcription"></div>
+</body>
+</html>
